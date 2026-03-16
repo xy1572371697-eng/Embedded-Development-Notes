@@ -5132,3 +5132,47 @@ long (*unlocked_ioctl) (struct file * fp, unsigned int request, unsigned long ar
 
 ```
 
+
+
+
+
+# Uboot启动流程
+
+[uboot启动流程详细分析-CSDN博客](https://blog.csdn.net/shenwanjiang111/article/details/102798388)
+
+## 第一阶段
+
+主要过程是
+
+1. 部分硬件初始化: 设置特权模式, 关闭看门狗,关中断, 设置时钟, 关MMU,cache(这里解释一下,系统没初始化完成时,代码不在内存中, 此时关闭,MMU和cache避免错误发生)
+2. 加载完整的Uboot到RAM(这一步在lowlevel_init.S文件中,先初始化RAM,再加载Uboot代码到内存中),建立堆栈, 清除bss段
+3. 跳转到第二阶段入口继续执行
+
+第一阶段主要文件有: 
+
+- start.S文件，位于 *u-boot/cpu/arm920t/start.S*
+- lowlevel_init.S文件，位于 *u-boot/board/smdk2410/lowlevel_init.S*
+
+## 第二阶段
+
+完成进一步的硬件初始化,并设置uboot的命令行,环境变量, 并跳转到内核
+
+主要文件以下:
+
+- board.c: 位于 *u-boot/lib_arm/board.c*
+- main.c: 位于 *u-boot/common/main.c*
+
+Uboot给内核传递参数:
+
+- 把你的 `bootargs` 写到 dtb 里面,修改DTB的chosen节点
+- 把 **dtb 的地址 0x83000000 放进 r2**
+- 跳内核
+
+
+
+# 内核启动流程
+
+1. stext(): 关中断, 开启特权模式, 打印信息, 创建页表, 使能MMU
+2. start_kernel(): 内核架构,通用配置的初始化, 中断向量表初始化, 内存管理初始化,进程管理初始化, 进程调度初始化, 网络初始化, vfs初始化, 文件系统初始化, 调用rest_init()
+3. rest_init() : 启动RCU调度器, init内核进程, 创建内核进程kthreadd,此进程负责所有内核进程的调度和管理, 进入空闲进程
+4. kernel_init: 是init进程的进程函数, 完成一部分初始化工作, 后寻找可运行的init程序
